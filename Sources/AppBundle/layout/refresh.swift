@@ -124,7 +124,7 @@ func refreshModel_nonCancellable() async {
         normalizeContainers()
         // Hygiene only: authority is DERIVED from the live button state
         // (mouse.swift), so a stale id is already inert - this just tidies it.
-        if currentlyManipulatedWithMouseWindowId == nil { clearManipulatedWithMouse("refresh-hygiene") }
+        if !isLeftMouseButtonDown { clearManipulatedWithMouse("refresh-hygiene") }
     }
 }
 
