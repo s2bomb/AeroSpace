@@ -40,6 +40,12 @@ func runHeavyCompleteRefreshSession(
 
             await refreshModel_nonCancellable()
             try await refresh()
+            // New windows are registered in refresh() above. If one of them is the natively
+            // focused window, the updateFocusCache call at the start of the session couldn't
+            // reflect it (the window wasn't registered yet), and on an idle system no further
+            // session may run for a while. Sync again so focus and MRU don't lag one session
+            // behind reality.
+            updateFocusCache(try await getNativeFocusedWindow(.cancellable))
             gcMonitors()
 
             updateTrayText()
