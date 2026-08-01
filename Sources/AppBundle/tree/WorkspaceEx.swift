@@ -12,7 +12,9 @@ extension Workspace {
                 }
                 return TilingContainer(parent: self, adaptiveWeight: 1, orientation, config.defaultRootContainerLayout, index: INDEX_BIND_LAST)
             case 1:
-                return containers.singleOrNil().orDie()
+                let container = containers.singleOrNil().orDie()
+                container.rederiveAutoOrientationIfEmptyRoot()
+                return container
             default:
                 die("Workspace must contain zero or one tiling container as its child")
         }

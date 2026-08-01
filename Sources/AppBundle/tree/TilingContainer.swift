@@ -53,6 +53,19 @@ extension TilingContainer {
             (child as? TilingContainer)?.normalizeOppositeOrientationForNestedContainers()
         }
     }
+
+    // 'auto' root container orientation is only evaluated when the root container is created.
+    // But an emptied root container survives (it is exempt from empty-container unbinding in
+    // unbindEmptyAndAutoFlatten), so it can keep an orientation that 'auto' would no longer pick.
+    // Re-derive before reuse.
+    @MainActor
+    func rederiveAutoOrientationIfEmptyRoot() {
+        if isRootContainer, children.isEmpty, config.defaultRootContainerOrientation == .auto,
+           let workspace = parent as? Workspace
+        {
+            _orientation = workspace.workspaceMonitor.then { $0.width >= $0.height } ? .h : .v
+        }
+    }
 }
 
 enum Layout: String {
