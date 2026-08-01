@@ -59,6 +59,7 @@ enum GlobalObserver {
             //  The end of the callback calls refreshSession
             Task.startUnstructured { @MainActor in
                 guard let token: RunSessionGuard = .isServerEnabled else { return }
+                dragLog("MOUSEUP")
                 try await resetManipulatedWithMouseIfPossible()
                 let mouseLocation = mouseLocation
                 let clickedMonitor = mouseLocation.monitorApproximation
@@ -71,7 +72,10 @@ enum GlobalObserver {
                     // Detect close button clicks for unfocused windows. Yes, kAXUIElementDestroyedNotification is that unreliable
                     //  And trigger new window detection that could be delayed due to mouseDown event
                     default:
-                        scheduleCancellableCompleteRefreshSession(.globalObserverLeftMouseUp)
+                        // Land the just-released window inside THIS uncancellable task
+                        // (runLightSession runs layoutWorkspaces): the schedule-only path
+                        // starves under trailing moved-notifications (project 09 W2).
+                        _ = try await runLightSession(.globalObserverLeftMouseUp, token) {}
                 }
             }
         }

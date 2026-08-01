@@ -25,12 +25,14 @@ func resizedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutabl
 
 @MainActor
 func resetManipulatedWithMouseIfPossible() async throws {
-    if currentlyManipulatedWithMouseWindowId != nil {
-        currentlyManipulatedWithMouseWindowId = nil
+    if clearManipulatedWithMouse("mouseup-reset") {
         for workspace in Workspace.all {
             workspace.resetResizeWeightBeforeResizeRecursive()
         }
-        scheduleCancellableCompleteRefreshSession(.resetManipulatedWithMouse, optimisticallyPreLayoutWorkspaces: true)
+        // Landing rides the caller's own uncancellable session (runLightSession's
+        // layoutWorkspaces). The schedule that used to live here was dead on
+        // arrival - canceled by the caller's next schedule before executing one
+        // instruction (project 09 audit). Removed.
     }
 }
 
@@ -74,7 +76,7 @@ private func resizeWithMouse(_ window: Window) async throws { // todo cover with
                     }
                 }
             }
-            currentlyManipulatedWithMouseWindowId = window.windowId
+            _ = claimManipulatedWithMouse(window.windowId)
     }
 }
 

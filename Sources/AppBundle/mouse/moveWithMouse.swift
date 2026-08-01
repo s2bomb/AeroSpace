@@ -48,7 +48,8 @@ private func moveFloatingWindow(_ window: Window) async throws {
 
 @MainActor
 private func moveTilingWindow(_ window: Window) {
-    currentlyManipulatedWithMouseWindowId = window.windowId
+    // Button already up (task resumed post-release) => must not re-mark (project 09 W1)
+    guard claimManipulatedWithMouse(window.windowId) else { return }
     window.lastAppliedLayoutPhysicalRect = nil
     let mouseLocation = mouseLocation
     let targetWorkspace = mouseLocation.monitorApproximation.activeWorkspace
