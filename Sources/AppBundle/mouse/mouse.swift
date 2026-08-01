@@ -7,19 +7,27 @@ import AppKit
 var isLeftMouseButtonDown: Bool { CGEventSource.buttonState(.hidSystemState, button: .left) }
 
 @MainActor private var _manipulatedWindowId: UInt32? = nil
+@MainActor private var _manipulatedClaimTime: Double = 0
+// HID buttonState FLICKERS false mid-hold when the down was tap-consumed
+// (flight-recorder: refresh-hygiene clears during held drags). A live drag
+// re-claims at ~30 Hz, so claim freshness is the reliable authority signal.
+private let manipulatedFreshnessS = 0.25
 
 // The mark's AUTHORITY is derived from the live button state instead of being
 // stored: an in-flight move task that resumes after mouse-up and re-writes the
 // id cannot poison anything - the stale value is inert the moment the button is
 // up (layout includes the window again; the next drag's claim overwrites).
 @MainActor var currentlyManipulatedWithMouseWindowId: UInt32? {
-    isLeftMouseButtonDown ? _manipulatedWindowId : nil
+    isLeftMouseButtonDown || CFAbsoluteTimeGetCurrent() - _manipulatedClaimTime < manipulatedFreshnessS
+        ? _manipulatedWindowId : nil
 }
 
 // Single writer. No suspension point between check and write.
 @MainActor func claimManipulatedWithMouse(_ windowId: UInt32) -> Bool {
-    guard isLeftMouseButtonDown, _manipulatedWindowId == nil || _manipulatedWindowId == windowId else { return false }
+    guard isLeftMouseButtonDown || CFAbsoluteTimeGetCurrent() - _manipulatedClaimTime < manipulatedFreshnessS,
+          _manipulatedWindowId == nil || _manipulatedWindowId == windowId else { return false }
     _manipulatedWindowId = windowId
+    _manipulatedClaimTime = CFAbsoluteTimeGetCurrent()
     dragLog("MANIP_SET wid=\(windowId)")
     return true
 }
