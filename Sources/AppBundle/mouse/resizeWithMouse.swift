@@ -80,16 +80,64 @@ private func resizeWithMouse(_ window: Window) async throws { // todo cover with
     }
 }
 
+// ============================================================================
+// Project 04: lease-driven resize. rigd owns the ⌥+RMB gesture end-to-end and
+// sends explicit socket messages (the project-09 architecture; Hyprland uses
+// the same lease-flag shape). Deltas are CUMULATIVE from grab; weights are
+// written ABSOLUTE from the resize latch => idempotent and drop-tolerant.
+// NO manipulation mark here: layout must keep writing the target's frame.
+// ============================================================================
+
+@MainActor
+func applyLeaseResize(windowId: UInt32, hDir: CardinalDirection?, vDir: CardinalDirection?, cumDx: CGFloat, cumDy: CGFloat) {
+    guard let window = Window.get(byId: windowId) else { return }
+    var work: [(CGFloat, CardinalDirection)] = []
+    // growth convention matches the observation table above: positive = window
+    // grows on that side. Right edge follows +dx; left edge: +dx shrinks.
+    if let hDir { work.append((hDir == .left ? -cumDx : cumDx, hDir)) }
+    if let vDir { work.append((vDir == .up ? -cumDy : cumDy, vDir)) }
+    for (growth, dir) in work {
+        guard let (parent, ownIndex) = window.closestParent(hasChildrenInDirection: dir, withLayout: .tiles) else { continue }
+        let orientation = parent.orientation
+        // Adjacent neighbor ONLY (Hyprland pins far neighbors; upstream's
+        // observation path spreads over all siblings on that side - documented
+        // divergence fix, one index change).
+        let nIdx = (dir == .left || dir == .up) ? ownIndex - 1 : ownIndex + 1
+        guard parent.children.indices.contains(nIdx) else { continue }
+        let neighbor = parent.children[nIdx]
+        // Safety floor ~20pt per side (approximates Hyprland's ratio clamp;
+        // upstream has no clamp at all).
+        let selfBase = (window.parentsWithSelf.lazy.first(where: { $0.parent === parent }) ?? window).getWeightBeforeResize(orientation)
+        let nBase = neighbor.getWeightBeforeResize(orientation)
+        let g = max(min(growth, nBase - 20), 20 - selfBase)
+        window.parentsWithSelf.lazy
+            .prefix(while: { $0 != parent })
+            .filter {
+                let p = $0.parent as? TilingContainer
+                return p?.orientation == orientation && p?.layout == .tiles
+            }
+            .forEach { $0.setWeight(orientation, $0.getWeightBeforeResize(orientation) + g) }
+        neighbor.setWeight(orientation, nBase - g)
+    }
+}
+
+@MainActor
+func endLeaseResize() {
+    for workspace in Workspace.all {
+        workspace.resetResizeWeightBeforeResizeRecursive()
+    }
+}
+
 extension TreeNode {
     @MainActor
-    fileprivate func getWeightBeforeResize(_ orientation: Orientation) -> CGFloat {
+    func getWeightBeforeResize(_ orientation: Orientation) -> CGFloat {
         let currentWeight = getWeight(orientation) // Check assertions
         return getUserData(key: adaptiveWeightBeforeResizeWithMouseKey)
             ?? (lastAppliedLayoutVirtualRect?.getDimension(orientation) ?? currentWeight)
             .also { putUserData(key: adaptiveWeightBeforeResizeWithMouseKey, data: $0) }
     }
 
-    fileprivate func resetResizeWeightBeforeResizeRecursive() {
+    func resetResizeWeightBeforeResizeRecursive() {
         cleanUserData(key: adaptiveWeightBeforeResizeWithMouseKey)
         for child in children {
             child.resetResizeWeightBeforeResizeRecursive()

@@ -59,6 +59,31 @@ private func newConnection(_ connection: NWConnection) async { // todo add exit 
                 """
             return await answerToClient(exitCode: EXIT_CODE_TWO, stderr: msg)
         }) else { continue }
+        // Lease-driven resize from the input daemon (project 04). Deltas are
+        // cumulative-from-grab; answer FIRST so the daemon's tap callback never
+        // waits on the layout pass.
+        if request.args.first == "resize-delta", request.args.count >= 6 {
+            let wid = UInt32(request.args[1]) ?? 0
+            let hDir: CardinalDirection? = request.args[2] == "left" ? .left : request.args[2] == "right" ? .right : nil
+            let vDir: CardinalDirection? = request.args[3] == "up" ? .up : request.args[3] == "down" ? .down : nil
+            let dx = CGFloat(Double(request.args[4]) ?? 0)
+            let dy = CGFloat(Double(request.args[5]) ?? 0)
+            await answerToClient(exitCode: EXIT_CODE_ZERO)
+            await applyLeaseResize(windowId: wid, hDir: hDir, vDir: vDir, cumDx: dx, cumDy: dy)
+            try? await layoutWorkspaces()
+            continue
+        }
+        if request.args.first == "resize-began" {
+            dragLog("RESIZE_BEGAN \(request.args.dropFirst().joined(separator: " "))")
+            await answerToClient(exitCode: EXIT_CODE_ZERO)
+            continue
+        }
+        if request.args.first == "resize-ended" {
+            dragLog("RESIZE_ENDED")
+            await endLeaseResize()
+            await answerToClient(exitCode: EXIT_CODE_ZERO)
+            continue
+        }
         // Drag-end notification from the input daemon (which consumes the chord and
         // therefore owns release truth; OS-level up delivery proved unreliable).
         if request.args.first == "drag-ended" {
