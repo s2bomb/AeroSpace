@@ -32,7 +32,7 @@ private func moveWithMouse(_ window: Window) async throws { // todo cover with t
         case .macosFullscreenWindowsContainer, .macosMinimizedWindowsContainer, .macosPopupWindowsContainer, .macosHiddenAppsWindowsContainer:
             return // Unconventional windows can't be moved with mouse
         case .tilingContainer:
-            moveTilingWindow(window)
+            moveTilingWindow(window, observed: try await window.getAxRect(.cancellable))
         case .unbound: return
     }
 }
@@ -47,7 +47,17 @@ private func moveFloatingWindow(_ window: Window) async throws {
 }
 
 @MainActor
-private func moveTilingWindow(_ window: Window) {
+private func moveTilingWindow(_ window: Window, observed: Rect?) {
+    // Self-echo suppression (yabai pattern, window_manager.c:731 rationale): a moved
+    // notification for a window sitting where the layout PUT it is our own swap's
+    // echo, not a user drag - claiming it steals the manipulation mark from the
+    // genuinely dragged window (live flight-recorder evidence: mark held by the
+    // swap partner for entire drags). Only diverged windows are user-manipulated.
+    if let desired = window.lastAppliedLayoutPhysicalRect, let observed,
+       abs(observed.topLeftX - desired.topLeftX) < 2, abs(observed.topLeftY - desired.topLeftY) < 2
+    {
+        return
+    }
     // Button already up (task resumed post-release) => must not re-mark (project 09 W1)
     guard claimManipulatedWithMouse(window.windowId) else { return }
     window.lastAppliedLayoutPhysicalRect = nil
