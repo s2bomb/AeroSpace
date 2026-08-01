@@ -28,11 +28,31 @@ private let manipulatedFreshnessS = 0.25
           _manipulatedWindowId == nil || _manipulatedWindowId == windowId else { return false }
     _manipulatedWindowId = windowId
     _manipulatedClaimTime = CFAbsoluteTimeGetCurrent()
+    armManipWatchdog()
     dragLog("MANIP_SET wid=\(windowId)")
     return true
 }
 
+@MainActor private var manipWatchdog: Task<Void, Never>? = nil
+
+// Gesture end = claim SILENCE. The OS button state lies in both directions for
+// tap-consumed chords (flight recorder: false mid-hold, true post-release), and
+// the release event itself is not guaranteed to be delivered. A live drag claims
+// at ~30 Hz; 350 ms of silence means the hand let go - clear and LAND, here,
+// unconditionally.
+@MainActor func armManipWatchdog() {
+    manipWatchdog?.cancel()
+    manipWatchdog = Task { @MainActor in
+        try? await Task.sleep(nanoseconds: 350_000_000)
+        guard !Task.isCancelled, _manipulatedWindowId != nil,
+              CFAbsoluteTimeGetCurrent() - _manipulatedClaimTime >= 0.35 else { return }
+        clearManipulatedWithMouse("watchdog")
+        try? await layoutWorkspaces()
+    }
+}
+
 @MainActor @discardableResult func clearManipulatedWithMouse(_ reason: String) -> Bool {
+    manipWatchdog?.cancel()
     guard let was = _manipulatedWindowId else { return false }
     _manipulatedWindowId = nil
     dragLog("MANIP_CLEAR was=\(was) \(reason)")
