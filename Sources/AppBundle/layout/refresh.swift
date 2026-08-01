@@ -122,6 +122,14 @@ func refreshModel_nonCancellable() async {
         Workspace.garbageCollectUnusedWorkspaces()
         await checkOnFocusChangedCallbacks_nonCancellable()
         normalizeContainers()
+        // The global leftMouseUp monitor is the only reset path for mouse
+        // manipulation state, but NSEvent global monitors never see events that
+        // another process's CGEvent tap consumed. If the button is genuinely up
+        // and the state is still set, the manipulated window stays exempt from
+        // layout forever and all further manipulation is gated off. Self-heal.
+        if currentlyManipulatedWithMouseWindowId != nil && !isLeftMouseButtonDown {
+            try? await resetManipulatedWithMouseIfPossible()
+        }
     }
 }
 
