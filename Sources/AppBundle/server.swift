@@ -59,6 +59,14 @@ private func newConnection(_ connection: NWConnection) async { // todo add exit 
                 """
             return await answerToClient(exitCode: EXIT_CODE_TWO, stderr: msg)
         }) else { continue }
+        // Drag-end notification from the input daemon (which consumes the chord and
+        // therefore owns release truth; OS-level up delivery proved unreliable).
+        if request.args.first == "drag-ended" {
+            await clearManipulatedWithMouse("client-drag-ended")
+            _ = try? await runLightSession(.globalObserverLeftMouseUp, .forceRun) {}
+            await answerToClient(exitCode: EXIT_CODE_ZERO)
+            continue
+        }
         // Handle subscribe before parseCommand (subscribe doesn't have a Command impl)
         if request.args.first == "subscribe" {
             switch parseSubscribeCmdArgs(request.args.slice(1...).orDie()) {

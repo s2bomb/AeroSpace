@@ -43,9 +43,9 @@ private let manipulatedFreshnessS = 0.25
 @MainActor func armManipWatchdog() {
     manipWatchdog?.cancel()
     manipWatchdog = Task { @MainActor in
-        try? await Task.sleep(nanoseconds: 350_000_000)
+        try? await Task.sleep(nanoseconds: 800_000_000)
         guard !Task.isCancelled, _manipulatedWindowId != nil,
-              CFAbsoluteTimeGetCurrent() - _manipulatedClaimTime >= 0.35 else { return }
+              CFAbsoluteTimeGetCurrent() - _manipulatedClaimTime >= 0.8 else { return }
         clearManipulatedWithMouse("watchdog")
         try? await layoutWorkspaces()
     }
