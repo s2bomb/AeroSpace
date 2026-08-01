@@ -141,6 +141,7 @@ private let configParser: [String: any ParserProtocol<Config>] = [
 
     "default-root-container-layout": Parser(\.defaultRootContainerLayout, parseLayout),
     "default-root-container-orientation": Parser(\.defaultRootContainerOrientation, parseDefaultContainerOrientation),
+    "default-new-window-placement": Parser(\.defaultNewWindowPlacement, parseDefaultNewWindowPlacement),
 
     "start-at-login": Parser(\.startAtLogin, parseBool),
     "auto-reload-config": Parser(\.autoReloadConfig, parseBool),
@@ -415,6 +416,13 @@ private func parseDefaultContainerOrientation(_ raw: OrderedJson, _ backtrace: C
     parseString(raw, backtrace).flatMap {
         DefaultContainerOrientation(rawValue: $0)
             .toResult(.init(backtrace, "Can't parse default container orientation '\($0)'"))
+    }
+}
+
+private func parseDefaultNewWindowPlacement(_ raw: OrderedJson, _ backtrace: ConfigBacktrace) -> ResOrConfigParseDiagnostic<DefaultNewWindowPlacement> {
+    parseString(raw, backtrace).flatMap {
+        DefaultNewWindowPlacement(rawValue: $0)
+            .toResult(.init(backtrace, "Can't parse default new window placement '\($0)'"))
     }
 }
 

@@ -41,6 +41,7 @@ struct Config: ConvenienceMutable {
     var _nonEmptyWorkspacesRootContainersLayoutOnStartup: Void = ()
     var defaultRootContainerLayout: Layout = .tiles
     var defaultRootContainerOrientation: DefaultContainerOrientation = .auto
+    var defaultNewWindowPlacement: DefaultNewWindowPlacement = .append
     var startAtLogin: Bool = false
     var autoReloadConfig: Bool = false
     var automaticallyUnhideMacosHiddenApps: Bool = false
@@ -80,4 +81,12 @@ enum ConfigVersion: Int, Comparable, CaseIterable, Sendable, CustomStringConvert
 
 enum DefaultContainerOrientation: String {
     case horizontal, vertical, auto
+}
+
+enum DefaultNewWindowPlacement: String {
+    /// The new window becomes the next sibling of the most recently used window (i3-like default)
+    case append
+    /// The most recently used window's cell is split perpendicular to its container;
+    /// the new window takes the second half (dwindle/spiral-family placement)
+    case splitMru = "split-mru"
 }
