@@ -1,7 +1,11 @@
 import AppKit
 
 @MainActor var currentlyManipulatedWithMouseWindowId: UInt32? = nil
-var isLeftMouseButtonDown: Bool { NSEvent.pressedMouseButtons == 1 }
+// HID system state, not NSEvent.pressedMouseButtons: the latter only reflects
+// DELIVERED events. A mouse-down consumed by another process's CGEvent tap
+// (or posted synthetically) never updates it, which makes drag detection fail
+// while the physical button is genuinely held.
+var isLeftMouseButtonDown: Bool { CGEventSource.buttonState(.hidSystemState, button: .left) }
 
 @MainActor
 func isManipulatedWithMouse(_ window: Window) async throws -> Bool {
